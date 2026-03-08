@@ -1,6 +1,6 @@
 # 🧪 Selenium BDD Python Framework
 
-[![Tests](https://github.com/Kamlesh211/selenium_bdd_framework/actions/workflows/test_pipeline.yml/badge.svg)](https://github.com/Kamlesh211/selenium_bdd_framework/actions/workflows/test_pipeline.yml)
+[![Tests](https://github.com/Kamlesh211/selenium-bdd-python-showcase/actions/workflows/test_pipeline.yml/badge.svg)](https://github.com/Kamlesh211/selenium-bdd-python-showcase/actions/workflows/test_pipeline.yml)
 [![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![Selenium](https://img.shields.io/badge/Selenium-4.18.1-43B02A?logo=selenium&logoColor=white)](https://selenium.dev)
 [![Behave](https://img.shields.io/badge/BDD-Behave-orange?logo=cucumber&logoColor=white)](https://behave.readthedocs.io)
