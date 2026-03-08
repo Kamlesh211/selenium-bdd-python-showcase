@@ -1,0 +1,129 @@
+name: Selenium BDD Test Pipeline
+
+on:
+  schedule:
+    - cron: '30 2 * * *'
+
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Test type to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - web
+          - api
+      tags:
+        description: 'Tag filter (e.g. @smoke)'
+        required: false
+        default: ''
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout framework (private repo)
+        uses: actions/checkout@v4
+        with:
+          repository: Kamlesh211/selenium_bdd_framework
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install Allure CLI
+        run: |
+          wget -q https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
+          tar -xzf allure-2.27.0.tgz
+          sudo mv allure-2.27.0 /opt/allure
+          sudo ln -s /opt/allure/bin/allure /usr/local/bin/allure
+          allure --version
+
+      - name: Set test_type
+        run: |
+          TEST_TYPE=${{ github.event.inputs.test_type || 'all' }}
+          sed -i "s/test_type=.*/test_type=${TEST_TYPE}/" bootstrap.properties
+          echo "Running with test_type=${TEST_TYPE}"
+
+      - name: Run tests
+        env:
+          TAGS: ${{ github.event.inputs.tags || '' }}
+        run: |
+          python -m behave features/ \
+            $( [ -n "$TAGS" ] && echo "--tags $TAGS" ) \
+            || true
+
+      - name: Generate Allure report
+        if: always()
+        run: |
+          allure generate reports/allure-results \
+            --output reports/allure-report --clean || true
+
+      - name: Upload Custom HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: custom-html-report
+          path: reports/report_*.html
+          retention-days: 30
+
+      - name: Upload Allure Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: reports/allure-report/
+          retention-days: 30
+
+      - name: Send Email Report
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: |
+            🧪 Test Report — ${{ job.status == 'success' && '✅ PASSED' || '❌ FAILED' }} — #${{ github.run_number }}
+          to: ${{ secrets.EMAIL_TO }}
+          from: Selenium BDD Framework <${{ secrets.EMAIL_USERNAME }}>
+          body: |
+            Hi Kamalesh,
+
+            Your Selenium BDD test run has completed.
+
+            ─────────────────────────────
+            📋 Run Summary
+            ─────────────────────────────
+            Status     : ${{ job.status }}
+            Test Type  : ${{ github.event.inputs.test_type || 'all' }}
+            Tags       : ${{ github.event.inputs.tags || 'All Tests' }}
+            Triggered  : ${{ github.event_name }}
+            Run Number : #${{ github.run_number }}
+            Branch     : ${{ github.ref_name }}
+            ─────────────────────────────
+
+            📊 Download Reports:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Regards,
+            Kamalesh 🤖
+          attachments: reports/report_*.html
